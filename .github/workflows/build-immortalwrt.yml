@@ -64,6 +64,18 @@ jobs:
         run: |
           cd openwrt
 
+          # Alpha 테마 + 필수 종속 패키지(luci-app-alpha-config) 소스로 추가
+          rm -rf package/luci-theme-alpha package/luci-app-alpha-config
+          git clone --depth 1 https://github.com/derisamedia/luci-theme-alpha package/luci-theme-alpha
+          git clone --depth 1 https://github.com/animegasan/luci-app-alpha-config package/luci-app-alpha-config
+
+          # brand.png 교체 (상단바 + 로그인화면 로고 둘 다)
+          curl -L --retry 3 --fail \
+            "https://raw.githubusercontent.com/hckwon767/tuf4200q/refs/heads/main/brand.png" \
+            -o /tmp/brand.png
+          cp /tmp/brand.png package/luci-theme-alpha/luasrc/brand.png
+          cp /tmp/brand.png package/luci-theme-alpha/luasrc/style/brand.png
+          
           # 0. Bandix (클라이언트별 트래픽 모니터링) — TR3000 방식과 동일하게 소스로 clone
           rm -rf package/luci-app-bandix package/openwrt-bandix
           git clone --depth 1 https://github.com/timsaya/luci-app-bandix package/luci-app-bandix
@@ -160,6 +172,8 @@ jobs:
 
           # Theme Argon
           CONFIG_PACKAGE_luci-theme-argon=y
+          CONFIG_PACKAGE_luci-theme-alpha=y
+          # CONFIG_PACKAGE_luci-app-alpha-config=y
 
           # Language Packages (ImmortalWrt Master 규격 반영)
           CONFIG_PACKAGE_luci-i18n-base-ko=y
