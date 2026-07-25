@@ -297,7 +297,12 @@ jobs:
           cp -a *factory.bin /tmp/release_files/ 2>/dev/null || true
           cp -a *initramfs*.bin /tmp/release_files/ 2>/dev/null || true
           cp -a *initramfs*.kernel /tmp/release_files/ 2>/dev/null || true
-          
+          cp -a config.buildinfo /tmp/release_files/ 2>/dev/null || true
+          cp -a version.buildinfo /tmp/release_files/ 2>/dev/null || true
+          cp -a feeds.buildinfo /tmp/release_files/ 2>/dev/null || true
+          cp -a *.manifest /tmp/release_files/ 2>/dev/null || true
+          cp -a sha256sums /tmp/release_files/ 2>/dev/null || true
+
           TAG_NAME="ImmortalWrt-ASUS-TUF-AX4200Q-$(date +'%Y.%m.%d-%H%M')"
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
           echo "RELEASE_PATH=/tmp/release_files" >> $GITHUB_OUTPUT
