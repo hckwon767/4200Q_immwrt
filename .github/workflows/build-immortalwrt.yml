@@ -64,6 +64,11 @@ jobs:
         run: |
           cd openwrt
 
+          # 0. Bandix (클라이언트별 트래픽 모니터링) — TR3000 방식과 동일하게 소스로 clone
+          rm -rf package/luci-app-bandix package/openwrt-bandix
+          git clone --depth 1 https://github.com/timsaya/luci-app-bandix package/luci-app-bandix
+          git clone --depth 1 https://github.com/timsaya/openwrt-bandix package/openwrt-bandix
+
           # 1. zashboard 한국어 패치 (OpenClash UI)
           DASHBOARD_KO_VERSION="v3.15.0"
           DASHBOARD_KO_NAME="zashboard-ko"
@@ -120,6 +125,14 @@ jobs:
           uci set system.@system[0].hostname='ASUS_VPNBOX'
           uci set luci.main.lang='ko'
           uci set luci.main.mediaurlbase='/luci-static/argon'
+
+          # Flow Offloading 활성화 (소프트웨어 오프로딩은 항상 지원,
+          # 하드웨어 오프로딩은 mt7986 mainline 지원 여부가 커널 버전마다 달라
+          # 시도만 하고 안 먹으면 무시됨 — 안전함)
+          uci set firewall.@defaults[0].flow_offloading='1'
+          uci set firewall.@defaults[0].flow_offloading_hw='1'
+          uci commit firewall
+
           uci commit system
           uci commit luci
           exit 0
@@ -192,6 +205,33 @@ jobs:
           CONFIG_PACKAGE_collectd-mod-sensors=y
           CONFIG_PACKAGE_kmod-usb3=y
           CONFIG_PACKAGE_kmod-usb-storage=y
+
+          # ── 1. Hardware/Software Flow Offloading ──
+          # (참고: chenmozhijin/turboacc-mtk 같은 China 전용 turboacc 패키지는
+          #  official immortalwrt 피드에 없어 이식 불가. 대신 firewall4에 내장된
+          #  공식 오프로딩 기능을 켭니다. 아래 files/etc/uci-defaults에서 활성화)
+          CONFIG_PACKAGE_kmod-nft-offload=y
+
+          # ── 2. Bandix (클라이언트별 트래픽 모니터링) ──
+          CONFIG_PACKAGE_bandix=y
+          CONFIG_PACKAGE_luci-app-bandix=y
+
+          # ── 3. USB 저장장치 자동 마운트 ──
+          CONFIG_PACKAGE_block-mount=y
+          CONFIG_PACKAGE_automount=y
+          CONFIG_PACKAGE_kmod-fs-ext4=y
+          CONFIG_PACKAGE_kmod-fs-vfat=y
+          CONFIG_PACKAGE_kmod-fs-exfat=y
+          CONFIG_PACKAGE_kmod-nls-cp437=y
+          CONFIG_PACKAGE_kmod-nls-utf8=y
+          CONFIG_PACKAGE_kmod-fs-ntfs3=y
+
+          # ── 4. zram swap ──
+          CONFIG_PACKAGE_zram-swap=y
+
+          # ── 중국 네트워크 최적화 (opkg 미러 · NTP) ──
+          CONFIG_PACKAGE_default-settings-chn=y
+          CONFIG_PACKAGE_dnsmasq is not set
           EOF
 
           # 의존성 자동 체크 및 정돈
