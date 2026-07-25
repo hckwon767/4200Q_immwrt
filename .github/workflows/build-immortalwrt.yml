@@ -7,6 +7,9 @@ env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt
   REPO_BRANCH: master
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -55,7 +58,7 @@ jobs:
           cd openwrt
           # 1. OpenClash Feed 추가
           echo "src-git openclash https://github.com/vernesong/OpenClash.git" >> feeds.conf.default
-          
+
           # 2. Feed 업데이트 및 설치
           ./scripts/feeds update -a
           ./scripts/feeds install -a
@@ -75,17 +78,17 @@ jobs:
             -o /tmp/brand.png
           cp /tmp/brand.png package/luci-theme-alpha/luasrc/brand.png
           cp /tmp/brand.png package/luci-theme-alpha/luasrc/style/brand.png
-          
-          # 0. Bandix (클라이언트별 트래픽 모니터링) — TR3000 방식과 동일하게 소스로 clone
+
+          # Bandix (클라이언트별 트래픽 모니터링) — 소스로 clone
           rm -rf package/luci-app-bandix package/openwrt-bandix
           git clone --depth 1 https://github.com/timsaya/luci-app-bandix package/luci-app-bandix
           git clone --depth 1 https://github.com/timsaya/openwrt-bandix package/openwrt-bandix
 
-          # 1. zashboard 한국어 패치 (OpenClash UI)
+          # zashboard 한국어 패치 (OpenClash UI)
           DASHBOARD_KO_VERSION="v3.15.0"
           DASHBOARD_KO_NAME="zashboard-ko"
           DASHBOARD_KO_UI_DIR="feeds/openclash/luci-app-openclash/root/usr/share/openclash/ui/zashboard"
-          
+
           # 경로가 안 보일 경우 피드 루트 디렉토리 확인 대응
           if [ ! -d "feeds/openclash/luci-app-openclash" ]; then
             DASHBOARD_KO_UI_DIR="feeds/luci/applications/luci-app-openclash/root/usr/share/openclash/ui/zashboard"
@@ -110,7 +113,7 @@ jobs:
           fi
           rm -rf /tmp/dashboard-ko
 
-          # 2. OpenClash Smart Core (ARM64 Meta Core) 사전 내장
+          # OpenClash Smart Core (ARM64 Meta Core) 사전 내장
           OPENCLASH_CORE_DIR="feeds/openclash/luci-app-openclash/root/etc/openclash/core"
           if [ ! -d "feeds/openclash/luci-app-openclash" ]; then
             OPENCLASH_CORE_DIR="feeds/luci/applications/luci-app-openclash/root/etc/openclash/core"
@@ -129,7 +132,7 @@ jobs:
           fi
           rm -rf /tmp/openclash-core
 
-          # 3. UCI 기본값 설정 (요청값 반영: 시간대 Asia/Shanghai, 호스트네임 ASUS_VPNBOX, 한국어 UI, Argon 테마)
+          # UCI 기본값 설정
           mkdir -p files/etc/uci-defaults
           cat << 'EOF' > files/etc/uci-defaults/99-custom
           uci set system.@system[0].zonename='Asia/Shanghai'
@@ -138,14 +141,16 @@ jobs:
           uci set luci.main.lang='ko'
           uci set luci.main.mediaurlbase='/luci-static/argon'
 
-          # Flow Offloading 활성화 (소프트웨어 오프로딩은 항상 지원,
-          # 하드웨어 오프로딩은 mt7986 mainline 지원 여부가 커널 버전마다 달라
-          # 시도만 하고 안 먹으면 무시됨 — 안전함)
+          uci delete system.ntp.server 2>/dev/null
+          uci add_list system.ntp.server='ntp.aliyun.com'
+          uci add_list system.ntp.server='cn.pool.ntp.org'
+          uci add_list system.ntp.server='ntp.tuna.tsinghua.edu.cn'
+          uci commit system
+
           uci set firewall.@defaults[0].flow_offloading='1'
           uci set firewall.@defaults[0].flow_offloading_hw='1'
           uci commit firewall
 
-          uci commit system
           uci commit luci
           exit 0
           EOF
@@ -160,25 +165,32 @@ jobs:
           CONFIG_TARGET_mediatek_filogic=y
           CONFIG_TARGET_mediatek_filogic_DEVICE_asus_tuf-ax4200q=y
 
-          # Initramfs Image Settings
-          CONFIG_TARGET_INITRAMFS_FORCE=y
+          # Initramfs Image Settings (복구용 initramfs만 별도 생성, 메인 이미지는 정상 persistent squashfs)
           CONFIG_TARGET_ROOTFS_INITRAMFS=y
-          CONFIG_USES_SEPARATE_INITRAMFS=n
-          CONFIG_TARGET_ROOTFS_INITRAMFS_SEPARATE=n
 
           # Build Optimization (ccache)
           CONFIG_DEVEL=y
           CONFIG_CCACHE=y
 
-          # Theme Argon
+          # Theme
           CONFIG_PACKAGE_luci-theme-argon=y
           CONFIG_PACKAGE_luci-theme-alpha=y
-          # CONFIG_PACKAGE_luci-app-alpha-config=y
+          CONFIG_PACKAGE_luci-app-alpha-config=y
 
-          # Language Packages (ImmortalWrt Master 규격 반영)
+          # 언어 한국어로 고정
+          CONFIG_LUCI_LANG_ko=y
           CONFIG_PACKAGE_luci-i18n-base-ko=y
           CONFIG_PACKAGE_luci-i18n-firewall-ko=y
           CONFIG_PACKAGE_luci-i18n-ttyd-ko=y
+          CONFIG_PACKAGE_luci-i18n-openclash-ko=y
+          CONFIG_PACKAGE_luci-i18n-bandix-ko=y
+          CONFIG_PACKAGE_luci-i18n-diskman-ko=y
+          CONFIG_PACKAGE_luci-i18n-hd-idle-ko=y
+          CONFIG_PACKAGE_luci-i18n-upnp-ko=y
+          CONFIG_PACKAGE_luci-i18n-sqm-ko=y
+          CONFIG_PACKAGE_luci-i18n-attendedsysupgrade-ko=y
+          CONFIG_PACKAGE_luci-i18n-dashboard-ko=y
+          CONFIG_PACKAGE_luci-i18n-ddns-ko=y
           CONFIG_PACKAGE_luci-app-package-manager=y
           CONFIG_PACKAGE_luci-i18n-package-manager-ko=y
 
@@ -192,6 +204,11 @@ jobs:
           CONFIG_PACKAGE_nano=y
           CONFIG_PACKAGE_irqbalance=y
 
+          # FTP / DDNS
+          CONFIG_PACKAGE_vsftpd=y
+          CONFIG_PACKAGE_luci-app-ddns=y
+          CONFIG_PACKAGE_ddns-scripts=y
+
           # OpenClash & Official Full Dependencies
           CONFIG_PACKAGE_luci-app-openclash=y
           CONFIG_PACKAGE_kmod-tun=y
@@ -203,6 +220,7 @@ jobs:
           CONFIG_PACKAGE_unzip=y
           CONFIG_PACKAGE_luci-compat=y
           CONFIG_PACKAGE_dnsmasq-full=y
+          # CONFIG_PACKAGE_dnsmasq is not set
           CONFIG_PACKAGE_coreutils=y
           CONFIG_PACKAGE_coreutils-nohup=y
           CONFIG_PACKAGE_bash=y
@@ -227,17 +245,14 @@ jobs:
           CONFIG_PACKAGE_kmod-usb3=y
           CONFIG_PACKAGE_kmod-usb-storage=y
 
-          # ── 1. Hardware/Software Flow Offloading ──
-          # (참고: chenmozhijin/turboacc-mtk 같은 China 전용 turboacc 패키지는
-          #  official immortalwrt 피드에 없어 이식 불가. 대신 firewall4에 내장된
-          #  공식 오프로딩 기능을 켭니다. 아래 files/etc/uci-defaults에서 활성화)
+          # Flow Offloading (firewall4 내장 기능 사용)
           CONFIG_PACKAGE_kmod-nft-offload=y
 
-          # ── 2. Bandix (클라이언트별 트래픽 모니터링) ──
+          # Bandix
           CONFIG_PACKAGE_bandix=y
           CONFIG_PACKAGE_luci-app-bandix=y
 
-          # ── 3. USB 저장장치 자동 마운트 ──
+          # USB 저장장치 자동 마운트
           CONFIG_PACKAGE_block-mount=y
           CONFIG_PACKAGE_automount=y
           CONFIG_PACKAGE_kmod-fs-ext4=y
@@ -247,21 +262,18 @@ jobs:
           CONFIG_PACKAGE_kmod-nls-utf8=y
           CONFIG_PACKAGE_kmod-fs-ntfs3=y
 
-          # ── 4. zram swap ──
+          # zram swap
           CONFIG_PACKAGE_zram-swap=y
 
-          # ── 중국 네트워크 최적화 (opkg 미러 · NTP) ──
-          CONFIG_PACKAGE_default-settings-chn=y
-
-          # ── 하드웨어 진단/활용 (AX4200Q: 2.5G 포트 x2, USB 3.2) ──
-          CONFIG_PACKAGE_ethtool=y          # 2.5G 포트 링크 협상/속도 확인·강제 설정
-          CONFIG_PACKAGE_iperf3=y           # 실제 처리량 벤치마크
+          # 하드웨어 진단/활용 (AX4200Q: 2.5G 포트 x2, USB 3.2)
+          CONFIG_PACKAGE_ethtool=y
+          CONFIG_PACKAGE_iperf3=y
           CONFIG_PACKAGE_libiperf3=y
-          CONFIG_PACKAGE_usbutils=y         # lsusb — USB 3.2 포트 장치 확인
+          CONFIG_PACKAGE_usbutils=y
           CONFIG_PACKAGE_usbids=y
-          CONFIG_PACKAGE_kmod-usb-printer=y # USB 프린터 공유
+          CONFIG_PACKAGE_kmod-usb-printer=y
 
-          # ── USB 외장 스토리지를 NAS처럼 쓸 계획이 있을 때만 (안 쓰면 이 블록 삭제) ──
+          # USB 외장 스토리지 NAS 용도
           CONFIG_PACKAGE_smartmontools=y
           CONFIG_PACKAGE_smartmontools-drivedb=y
           CONFIG_PACKAGE_hd-idle=y
