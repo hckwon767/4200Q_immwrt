@@ -139,7 +139,7 @@ jobs:
           uci set system.@system[0].timezone='CST-8'
           uci set system.@system[0].hostname='ASUS_VPNBOX'
           uci set luci.main.lang='ko'
-          uci set luci.main.mediaurlbase='/luci-static/argon'
+          uci set luci.main.mediaurlbase='/luci-static/alpha'
 
           uci delete system.ntp.server 2>/dev/null
           uci add_list system.ntp.server='ntp.aliyun.com'
@@ -242,6 +242,7 @@ jobs:
           # Hardware & Sensors
           CONFIG_PACKAGE_lm-sensors=y
           CONFIG_PACKAGE_collectd-mod-sensors=y
+          CONFIG_PACKAGE_collectd=y
           CONFIG_PACKAGE_kmod-usb3=y
           CONFIG_PACKAGE_kmod-usb-storage=y
 
