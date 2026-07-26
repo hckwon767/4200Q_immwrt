@@ -15,7 +15,7 @@ permissions:
 jobs:
   # ──────────────────────────────────────────────
   # JOB 1: SDK로 커스텀 패키지만 컴파일 (bandix, alpha 테마)
-  # OpenClash는 libffi 상위(upstream) 버그 때문에 여기서 안 빌드함
+  # OpenClash는 공식 사전 빌드 apk를 그대로 사용 (libffi 이슈 회피)
   # ──────────────────────────────────────────────
   build-custom-packages:
     runs-on: ubuntu-22.04
@@ -38,7 +38,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential clang flex bison gawk rsync gettext \
             git libncurses5-dev libssl-dev python3-distutils zlib1g-dev file wget \
-            unzip python3-setuptools python3-pyelftools zstd
+            unzip python3-setuptools python3-pyelftools zstd jq
 
       - name: Resolve & Download SDK
         run: |
@@ -81,15 +81,21 @@ jobs:
           make package/luci-theme-alpha/compile V=s -j$(nproc)
           make package/luci-app-alpha-config/compile V=s -j$(nproc)
 
-      - name: Download Prebuilt OpenClash (SDK 빌드 대신 커뮤니티 사전 빌드본 사용 — libffi 업스트림 버그 우회)
+      - name: Download Official Prebuilt OpenClash (공식 apk, SDK 빌드 우회)
         run: |
           mkdir -p /tmp/custom-packages
-          curl -sL "https://api.github.com/repos/de-quenx/OpenClash-x/releases/latest" \
-            | grep -oE '"browser_download_url": *"[^"]*aarch64[^"]*\.apk"' \
-            | grep -oE 'https://[^"]*' \
-            | head -n1 > /tmp/openclash_url.txt
-          echo "Resolved OpenClash URL: $(cat /tmp/openclash_url.txt)"
-          curl -L --retry 3 --fail -o /tmp/custom-packages/luci-app-openclash.apk "$(cat /tmp/openclash_url.txt)"
+          curl -sL --retry 2 "https://api.github.com/repos/vernesong/OpenClash/releases/latest" \
+            -o /tmp/openclash_release.json
+
+          DOWNLOAD_URL=$(jq -r '.assets[].browser_download_url' /tmp/openclash_release.json | grep '\.apk$' | head -n1)
+
+          if [ -n "$DOWNLOAD_URL" ]; then
+            echo "Resolved OpenClash URL: $DOWNLOAD_URL"
+            curl -L --retry 3 --fail -o /tmp/custom-packages/luci-app-openclash.apk "$DOWNLOAD_URL"
+          else
+            echo "::error::OpenClash apk 릴리즈를 찾지 못했습니다"
+            exit 1
+          fi
 
       - name: Collect Built Packages
         run: |
@@ -181,7 +187,7 @@ jobs:
           # zashboard 한국어 패치
           mkdir -p imagebuilder/files/usr/share/openclash/ui/zashboard
           curl -L --retry 3 --fail \
-            "https://github.com/hckwon767/dashboard-ko/releases/download/v3.16.0/zashboard-ko.zip" \
+            "https://github.com/hckwon767/dashboard-ko/releases/download/v3.15.0/zashboard-ko.zip" \
             -o /tmp/zashboard-ko.zip
           unzip -q /tmp/zashboard-ko.zip -d /tmp/dashboard-ko-extract
           cp -a /tmp/dashboard-ko-extract/. imagebuilder/files/usr/share/openclash/ui/zashboard/ 2>/dev/null || true
@@ -191,6 +197,7 @@ jobs:
           cd imagebuilder
           make image PROFILE="${PROFILE}" \
             PACKAGES="\
+              luci luci-base \
               luci-theme-argon luci-theme-alpha luci-app-alpha-config \
               default-settings-chn \
               luci-i18n-base-ko luci-i18n-firewall-ko luci-i18n-ttyd-ko \
