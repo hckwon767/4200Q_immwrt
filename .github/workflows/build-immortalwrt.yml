@@ -181,7 +181,7 @@ jobs:
           # zashboard 한국어 패치
           mkdir -p imagebuilder/files/usr/share/openclash/ui/zashboard
           curl -L --retry 3 --fail \
-            "https://github.com/hckwon767/dashboard-ko/releases/download/v3.15.0/zashboard-ko.zip" \
+            "https://github.com/hckwon767/dashboard-ko/releases/download/v3.16.0/zashboard-ko.zip" \
             -o /tmp/zashboard-ko.zip
           unzip -q /tmp/zashboard-ko.zip -d /tmp/dashboard-ko-extract
           cp -a /tmp/dashboard-ko-extract/. imagebuilder/files/usr/share/openclash/ui/zashboard/ 2>/dev/null || true
