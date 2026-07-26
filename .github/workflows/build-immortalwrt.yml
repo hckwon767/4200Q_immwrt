@@ -14,12 +14,11 @@ permissions:
 
 jobs:
   # ──────────────────────────────────────────────
-  # JOB 1: SDK로 커스텀 패키지만 컴파일
+  # JOB 1: SDK로 커스텀 패키지만 컴파일 (bandix, alpha 테마)
+  # OpenClash는 libffi 상위(upstream) 버그 때문에 여기서 안 빌드함
   # ──────────────────────────────────────────────
   build-custom-packages:
     runs-on: ubuntu-22.04
-    outputs:
-      pkg-archive: custom-packages.tar.gz
     steps:
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@main
@@ -43,7 +42,6 @@ jobs:
 
       - name: Resolve & Download SDK
         run: |
-          # sha256sums 파일에서 현재 SDK 정확한 파일명을 동적으로 찾음 (버전 문자열이 자주 바뀌므로)
           curl -sL "${DOWNLOAD_BASE}/sha256sums" -o sha256sums
           SDK_FILE=$(grep -oE 'immortalwrt-sdk-mediatek-filogic[^ ]*\.tar\.zst' sha256sums | head -n1)
           echo "SDK_FILE=$SDK_FILE" >> $GITHUB_ENV
@@ -54,9 +52,6 @@ jobs:
       - name: Add Custom Package Sources
         run: |
           cd sdk
-
-          # OpenClash 피드 추가
-          echo "src-git openclash https://github.com/vernesong/OpenClash.git" >> feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
@@ -77,26 +72,29 @@ jobs:
           git clone --depth 1 https://github.com/timsaya/luci-app-bandix package/luci-app-bandix
           git clone --depth 1 https://github.com/timsaya/openwrt-bandix package/openwrt-bandix
 
-      - name: Compile Custom Packages Only
+      - name: Compile Custom Packages Only (bandix, alpha 테마만)
         run: |
           cd sdk
           make defconfig
-
-          # libffi가 SDK/feeds 버전 스큐로 깨지는 경우가 있어 먼저 클린 빌드
-          make package/libffi/{clean,compile} V=s -j1
-
-          make package/luci-app-openclash/compile V=s -j$(nproc) \
-            || make package/luci-app-openclash/compile V=s -j1
           make package/luci-app-bandix/compile V=s -j$(nproc)
           make package/openwrt-bandix/compile V=s -j$(nproc)
           make package/luci-theme-alpha/compile V=s -j$(nproc)
           make package/luci-app-alpha-config/compile V=s -j$(nproc)
 
-      - name: Collect Built Packages
+      - name: Download Prebuilt OpenClash (SDK 빌드 대신 커뮤니티 사전 빌드본 사용 — libffi 업스트림 버그 우회)
         run: |
           mkdir -p /tmp/custom-packages
+          curl -sL "https://api.github.com/repos/de-quenx/OpenClash-x/releases/latest" \
+            | grep -oE '"browser_download_url": *"[^"]*aarch64[^"]*\.apk"' \
+            | grep -oE 'https://[^"]*' \
+            | head -n1 > /tmp/openclash_url.txt
+          echo "Resolved OpenClash URL: $(cat /tmp/openclash_url.txt)"
+          curl -L --retry 3 --fail -o /tmp/custom-packages/luci-app-openclash.apk "$(cat /tmp/openclash_url.txt)"
+
+      - name: Collect Built Packages
+        run: |
           find sdk/bin/packages -type f \( -name "*.apk" -o -name "*.ipk" \) \
-            \( -iname "*openclash*" -o -iname "*bandix*" -o -iname "*alpha*" \) \
+            \( -iname "*bandix*" -o -iname "*alpha*" \) \
             -exec cp -v {} /tmp/custom-packages/ \;
           ls -la /tmp/custom-packages/
           tar -czf custom-packages.tar.gz -C /tmp custom-packages
@@ -148,8 +146,7 @@ jobs:
           cd imagebuilder
           mkdir -p custom-repo
           cp ../custom-packages/*.apk custom-repo/ 2>/dev/null || cp ../custom-packages/*.ipk custom-repo/
-          # apk 인덱스 생성 (신뢰되지 않은 로컬 저장소로 등록)
-          if command -v apk >/dev/null 2>&1 || [ -x ./staging_dir/host/bin/apk ]; then
+          if [ -x ./staging_dir/host/bin/apk ]; then
             ./staging_dir/host/bin/apk mkpkg-index custom-repo/*.apk > custom-repo/APKINDEX.tar.gz 2>/dev/null || true
             echo "src custom file://$(pwd)/custom-repo" >> repositories.conf
           fi
