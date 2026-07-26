@@ -81,7 +81,12 @@ jobs:
         run: |
           cd sdk
           make defconfig
-          make package/luci-app-openclash/compile V=s -j$(nproc) IGNORE_ERRORS=n || make package/luci-app-openclash/compile V=s -j1
+
+          # libffi가 SDK/feeds 버전 스큐로 깨지는 경우가 있어 먼저 클린 빌드
+          make package/libffi/{clean,compile} V=s -j1
+
+          make package/luci-app-openclash/compile V=s -j$(nproc) \
+            || make package/luci-app-openclash/compile V=s -j1
           make package/luci-app-bandix/compile V=s -j$(nproc)
           make package/openwrt-bandix/compile V=s -j$(nproc)
           make package/luci-theme-alpha/compile V=s -j$(nproc)
