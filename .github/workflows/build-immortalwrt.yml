@@ -133,25 +133,18 @@ jobs:
           rm -rf /tmp/openclash-core
 
           # UCI 기본값 설정
+          # (타임존/NTP/opkg-apk 미러는 default-settings-chn 패키지가 알아서 처리하므로 여기서는 생략)
           mkdir -p files/etc/uci-defaults
           cat << 'EOF' > files/etc/uci-defaults/99-custom
-          uci set system.@system[0].zonename='Asia/Shanghai'
-          uci set system.@system[0].timezone='CST-8'
           uci set system.@system[0].hostname='ASUS_VPNBOX'
           uci set luci.main.lang='ko'
           uci set luci.main.mediaurlbase='/luci-static/alpha'
-
-          uci delete system.ntp.server 2>/dev/null
-          uci add_list system.ntp.server='ntp.aliyun.com'
-          uci add_list system.ntp.server='cn.pool.ntp.org'
-          uci add_list system.ntp.server='ntp.tuna.tsinghua.edu.cn'
-          uci commit system
+          uci commit luci
 
           uci set firewall.@defaults[0].flow_offloading='1'
           uci set firewall.@defaults[0].flow_offloading_hw='1'
           uci commit firewall
 
-          uci commit luci
           exit 0
           EOF
           chmod +x files/etc/uci-defaults/99-custom
@@ -177,20 +170,10 @@ jobs:
           CONFIG_PACKAGE_luci-theme-alpha=y
           CONFIG_PACKAGE_luci-app-alpha-config=y
 
-          # 언어 한국어로 고정
+          # 중국 네트워크 최적화 (타임존/NTP/apk 미러 자동 처리) + 한국어 병행
+          CONFIG_PACKAGE_default-settings-chn=y
           CONFIG_LUCI_LANG_ko=y
-          CONFIG_PACKAGE_luci-i18n-base-ko=y
-          CONFIG_PACKAGE_luci-i18n-firewall-ko=y
-          CONFIG_PACKAGE_luci-i18n-ttyd-ko=y
-          CONFIG_PACKAGE_luci-i18n-openclash-ko=y
-          CONFIG_PACKAGE_luci-i18n-bandix-ko=y
-          CONFIG_PACKAGE_luci-i18n-diskman-ko=y
-          CONFIG_PACKAGE_luci-i18n-hd-idle-ko=y
-          CONFIG_PACKAGE_luci-i18n-upnp-ko=y
-          CONFIG_PACKAGE_luci-i18n-sqm-ko=y
-          CONFIG_PACKAGE_luci-i18n-attendedsysupgrade-ko=y
-          CONFIG_PACKAGE_luci-i18n-dashboard-ko=y
-          CONFIG_PACKAGE_luci-i18n-ddns-ko=y
+          CONFIG_LUCI_LANG_zh_Hans=y
           CONFIG_PACKAGE_luci-app-package-manager=y
           CONFIG_PACKAGE_luci-i18n-package-manager-ko=y
 
