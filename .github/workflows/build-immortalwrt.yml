@@ -152,10 +152,23 @@ jobs:
           cd imagebuilder
           mkdir -p custom-repo
           cp ../custom-packages/*.apk custom-repo/ 2>/dev/null || cp ../custom-packages/*.ipk custom-repo/
-          if [ -x ./staging_dir/host/bin/apk ]; then
-            ./staging_dir/host/bin/apk mkpkg-index custom-repo/*.apk > custom-repo/APKINDEX.tar.gz 2>/dev/null || true
-            echo "src custom file://$(pwd)/custom-repo" >> repositories.conf
+          echo "── 커스텀 패키지 목록 ──"
+          ls -la custom-repo/
+
+          APK_BIN=$(find . -maxdepth 5 -type f -name apk -perm -u+x 2>/dev/null | head -n1)
+          echo "Resolved apk binary path: ${APK_BIN:-NOT FOUND}"
+
+          if [ -z "$APK_BIN" ]; then
+            echo "::error::ImageBuilder 트리 안에서 apk 바이너리를 못 찾았습니다. 아래 목록 확인:"
+            find . -maxdepth 3 -iname "*apk*"
+            exit 1
           fi
+
+          "$APK_BIN" mkpkg-index custom-repo/*.apk > custom-repo/APKINDEX.tar.gz
+          echo "src custom file://$(pwd)/custom-repo" >> repositories.conf
+
+          echo "── 최종 repositories.conf ──"
+          cat repositories.conf
 
       - name: Prepare Custom Files Overlay
         run: |
@@ -201,7 +214,7 @@ jobs:
               luci-theme-argon luci-theme-alpha luci-app-alpha-config \
               default-settings-chn \
               luci-i18n-base-ko luci-i18n-firewall-ko luci-i18n-ttyd-ko \
-              luci-i18n-openclash-ko luci-i18n-bandix-ko luci-i18n-diskman-ko \
+              luci-i18n-bandix-ko \
               luci-i18n-hd-idle-ko luci-i18n-upnp-ko luci-i18n-sqm-ko \
               luci-i18n-attendedsysupgrade-ko luci-i18n-dashboard-ko luci-i18n-ddns-ko \
               luci-app-package-manager luci-i18n-package-manager-ko \
