@@ -150,8 +150,8 @@ jobs:
       - name: Register Custom Package Repo
         run: |
           cd imagebuilder
-          mkdir -p custom-repo
-          cp ../custom-packages/*.apk custom-repo/ 2>/dev/null || cp ../custom-packages/*.ipk custom-repo/
+          mkdir -p custom-repo keys
+          cp ../custom-packages/*.apk custom-repo/
           echo "── 커스텀 패키지 목록 ──"
           ls -la custom-repo/
 
@@ -159,19 +159,25 @@ jobs:
           echo "Resolved apk binary path: ${APK_BIN:-NOT FOUND}"
           if [ -z "$APK_BIN" ]; then
             echo "::error::apk 바이너리를 못 찾았습니다"
-            find . -maxdepth 3 -iname "*apk*"
             exit 1
           fi
 
-          # 인덱스 생성 (mkpkg-index가 아니라 mkndx)
-          (cd custom-repo && "$APK_BIN" mkndx --allow-untrusted --output packages.adb *.apk)
+          # 우리 저장소 서명용 키 생성
+          openssl ecparam -name prime256v1 -genkey -noout -out custom.sec
+          openssl ec -in custom.sec -pubout -out custom.pub
 
-          # apk는 'repositories.conf'가 아니라 확장자 없는 'repositories'를 읽고,
-          # 문법도 'src ...'가 아니라 packages.adb로 끝나는 경로 한 줄입니다.
+          # apk가 신뢰 키를 찾는 디렉토리(keys/)에 공개키 등록
+          cp custom.pub keys/custom-repo.pub
+
+          # 인덱스를 이 키로 서명해서 생성
+          (cd custom-repo && "$APK_BIN" mkndx --sign "$(pwd)/../custom.sec" --output packages.adb *.apk)
+
           echo "file://$(pwd)/custom-repo/packages.adb" >> repositories
 
-          echo "── 최종 repositories 내용 ──"
+          echo "── 최종 repositories ──"
           cat repositories
+          echo "── keys 디렉토리 ──"
+          ls -la keys/
 
       - name: Prepare Custom Files Overlay
         run: |
