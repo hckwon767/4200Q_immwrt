@@ -92,6 +92,19 @@ jobs:
           if [ -n "$DOWNLOAD_URL" ]; then
             echo "Resolved OpenClash URL: $DOWNLOAD_URL"
             curl -L --retry 3 --fail -o /tmp/custom-packages/luci-app-openclash.apk "$DOWNLOAD_URL"
+
+            # apk 내부 메타데이터(.PKGINFO)를 읽어 실제 이름-버전으로 리네임
+            # (apk 인덱스가 파일 내용 기준으로 기록하므로, 파일명도 반드시 일치해야 함)
+            PKGINFO=$(tar -xzOf /tmp/custom-packages/luci-app-openclash.apk .PKGINFO 2>/dev/null)
+            PKGNAME=$(echo "$PKGINFO" | grep '^pkgname' | cut -d'=' -f2 | tr -d ' ')
+            PKGVER=$(echo "$PKGINFO" | grep '^pkgver' | cut -d'=' -f2 | tr -d ' ')
+
+            if [ -n "$PKGNAME" ] && [ -n "$PKGVER" ]; then
+              mv /tmp/custom-packages/luci-app-openclash.apk "/tmp/custom-packages/${PKGNAME}-${PKGVER}.apk"
+              echo "Renamed to: ${PKGNAME}-${PKGVER}.apk"
+            else
+              echo "::warning::.PKGINFO 파싱 실패, 원본 파일명 유지 (설치 단계에서 실패할 수 있음)"
+            fi
           else
             echo "::error::OpenClash apk 릴리즈를 찾지 못했습니다"
             exit 1
