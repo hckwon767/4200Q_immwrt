@@ -162,18 +162,13 @@ jobs:
             exit 1
           fi
 
-          # 우리 저장소 서명용 키 생성
           openssl ecparam -name prime256v1 -genkey -noout -out custom.sec
           openssl ec -in custom.sec -pubout -out custom.pub
-
-          # apk가 신뢰 키를 찾는 디렉토리(keys/)에 공개키 등록
           cp custom.pub keys/custom-repo.pub
 
-          # 인덱스를 이 키로 서명해서 생성
-          (cd custom-repo && "$APK_BIN" mkndx --sign "$(pwd)/../custom.sec" --output packages.adb *.apk)
+          (cd custom-repo && "$APK_BIN" mkndx --allow-untrusted --sign "$(pwd)/../custom.sec" --output packages.adb *.apk)
 
           echo "file://$(pwd)/custom-repo/packages.adb" >> repositories
-
           echo "── 최종 repositories ──"
           cat repositories
           echo "── keys 디렉토리 ──"
